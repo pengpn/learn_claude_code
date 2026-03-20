@@ -1,4 +1,4 @@
-# Agent Learn
+# Learn Claude Code
 
 [中文版](README_zh.md)
 

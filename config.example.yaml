@@ -1,0 +1,41 @@
+# 当前使用的 provider（可被 PROVIDER 环境变量覆盖）
+provider: openai
+
+# 各 provider 配置
+# api_key 支持 ${ENV_VAR} 语法引用环境变量
+# base_url 需包含版本路径（如 /v1），代码会在其后追加 /chat/completions
+providers:
+  anthropic:
+    api_key: ${ANTHROPIC_API_KEY}
+    base_url: ${ANTHROPIC_BASE_URL}
+    model: claude-sonnet-4-20250514
+
+  openai:
+    api_key: ${OPENAI_API_KEY}
+    base_url: https://api.openai.com/v1
+    model: gpt-4o
+
+  qwen:
+    api_key: ${QWEN_API_KEY}
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    model: qwen-plus
+
+  deepseek:
+    api_key: ${DEEPSEEK_API_KEY}
+    base_url: https://api.deepseek.com/v1
+    model: deepseek-chat
+
+  kimi:
+    api_key: ${MOONSHOT_API_KEY}
+    base_url: https://api.moonshot.cn/v1
+    model: moonshot-v1-32k
+
+  zhipu:
+    api_key: ${ZHIPU_API_KEY}
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    model: glm-4-flash
+
+  minimax:
+    api_key: ${MINIMAX_API_KEY}
+    base_url: https://api.minimax.chat/v1
+    model: MiniMax-Text-01

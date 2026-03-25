@@ -25,6 +25,10 @@ forces it to keep updating when it forgets.
                       inject <reminder>
 
 Key insight: "The agent can track its own progress -- and I can see it."
+
+自测方式：用自然语言描述一个大于3步的任务，然后让模型执行，观察是否能够正确地使用 todo 工具来规划和跟踪进度。
+例如输入：1 . 创建demo目录  2 .写main.go 打印hello world 3 .再写readme.md说明用法 4，最后验证编译
+每次 LLM 开始新步骤前，都会调用 todo 更新状态。如果它连续 3 轮忘了更新，你会看到系统注入的 <reminder> 让它想起来
 */
 
 import (
@@ -59,6 +63,19 @@ type TodoManager struct {
 	items []TodoItem
 }
 
+func normalizeStatus(raw string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "pending", "待办":
+		return "pending", true
+	case "in_progress", "进行中":
+		return "in_progress", true
+	case "completed", "已完成":
+		return "completed", true
+	default:
+		return "", false
+	}
+}
+
 func (t *TodoManager) Update(raw []any) (string, error) {
 	if len(raw) > 20 {
 		return "", fmt.Errorf("max 20 todos allowed")
@@ -84,12 +101,13 @@ func (t *TodoManager) Update(raw []any) (string, error) {
 		if text == "" {
 			return "", fmt.Errorf("item %s: text required", id)
 		}
-		status := "pending"
+		rawStatus := ""
 		if v, ok := m["status"].(string); ok {
-			status = strings.ToLower(v)
+			rawStatus = v
 		}
-		if status != "pending" && status != "in_progress" && status != "completed" {
-			return "", fmt.Errorf("item %s: invalid status %q", id, status)
+		status, ok := normalizeStatus(rawStatus)
+		if !ok {
+			return "", fmt.Errorf("item %s: invalid status %q", id, rawStatus)
 		}
 		if status == "in_progress" {
 			inProgressCount++
@@ -107,18 +125,19 @@ func (t *TodoManager) Update(raw []any) (string, error) {
 
 func (t *TodoManager) Render() string {
 	if len(t.items) == 0 {
-		return "No todos."
+		return "暂无待办。"
 	}
 	markers := map[string]string{"pending": "[ ]", "in_progress": "[>]", "completed": "[x]"}
+	labels := map[string]string{"pending": "待办", "in_progress": "进行中", "completed": "已完成"}
 	var lines []string
 	done := 0
 	for _, item := range t.items {
-		lines = append(lines, fmt.Sprintf("%s #%s: %s", markers[item.Status], item.ID, item.Text))
+		lines = append(lines, fmt.Sprintf("%s #%s [%s]: %s", markers[item.Status], item.ID, labels[item.Status], item.Text))
 		if item.Status == "completed" {
 			done++
 		}
 	}
-	lines = append(lines, fmt.Sprintf("\n(%d/%d completed)", done, len(t.items)))
+	lines = append(lines, fmt.Sprintf("\n（已完成 %d/%d）", done, len(t.items)))
 	return strings.Join(lines, "\n")
 }
 
@@ -301,7 +320,7 @@ var tools = []llm.Tool{
 						"properties": map[string]any{
 							"id":     map[string]any{"type": "string"},
 							"text":   map[string]any{"type": "string"},
-							"status": map[string]any{"type": "string", "enum": []string{"pending", "in_progress", "completed"}},
+							"status": map[string]any{"type": "string", "enum": []string{"pending", "in_progress", "completed", "待办", "进行中", "已完成"}},
 						},
 						"required": []string{"id", "text", "status"},
 					},
@@ -383,8 +402,10 @@ func agentLoop(ctx context.Context, provider llm.Provider, model, system string,
 		// keeps the "assistant(tool_calls) → tool results" adjacency that
 		// OpenAI-compatible APIs require.
 		msg := llm.ToolResultsMessage(results)
+		// 如果它连续 3 轮忘了更新，你会看到系统注入的 <reminder> 让它想起来
 		if roundsSinceTodo >= 3 {
 			msg.Content = "<reminder>Update your todos.</reminder>"
+			fmt.Println("[SYSTEM] 注入 reminder：3 轮没更新 todo")  // 加这行显示看看
 		}
 		*messages = append(*messages, msg)
 	}
@@ -397,9 +418,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	system := fmt.Sprintf(`You are a coding agent at %s.
-Use the todo tool to plan multi-step tasks. Mark in_progress before starting, completed when done.
-Prefer tools over prose.`, workdir)
+	system := fmt.Sprintf(`你是一个位于 %s 的编码代理。
+使用 todo 工具来规划多步骤任务。开始前将任务标记为进行中（或 in_progress），完成后标记为已完成（或 completed）。
+优先使用工具，而不是只用文字说明。`, workdir)
 
 	var messages []llm.Message
 	scanner := bufio.NewScanner(os.Stdin)

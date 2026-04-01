@@ -21,6 +21,18 @@ context, sharing the filesystem, then returns only a summary to the parent.
     Subagent context is discarded.
 
 Key insight: "Process isolation gives context isolation for free."
+
+`s04_subagent` 里是否执行子 agent，不取决于启动命令，而取决于你输入的任务描述。
+只有当父 agent 判断这个任务适合委派时，它才会调用 `task` 工具，并启动一个 fresh context 的子 agent。
+
+想提高触发概率，输入要写成“先搜索/分析，再总结”的形式，例如：
+- 先搜索仓库里所有和 subagent 相关的代码，再总结
+- 帮我遍历项目里的示例目录，并说明每个示例的作用
+- 请查找所有 task 工具的使用位置，然后汇总设计模式
+
+如果终端中出现 `> task (...)`，就说明已经成功触发了子 agent。```
+
+- 。。。
 */
 
 import (
@@ -311,6 +323,7 @@ func agentLoop(ctx context.Context, provider llm.Provider, model, system string,
 				}
 				fmt.Printf("> task (%s): %s\n", desc, preview)
 				output = runSubagent(ctx, provider, model, prompt)
+				fmt.Println("subagent已完成返回内容")
 			} else {
 				handler, ok := toolHandlers[tc.Name]
 				if ok {

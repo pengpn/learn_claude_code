@@ -33,6 +33,13 @@ Two-layer skill injection that avoids bloating the system prompt:
     +--------------------------------------+
 
 Key insight: "Don't put everything in the system prompt. Load on demand."
+
+解决的是“上下文膨胀”，不要把所有技能全文提前塞给主 agent
+把知识按需拿进来
+
+最容易触发 load_skill 的输入是这种：
+帮我 review 一下这个 Go 文件，重点看安全性和可维护性
+这类请求很容易让模型加载 code-review。
 */
 
 import (
@@ -406,6 +413,8 @@ Use load_skill to access specialized knowledge before tackling unfamiliar topics
 
 Skills available:
 %s`, workdir, skillLoader.GetDescriptions())
+
+	fmt.Println(system)
 
 	var messages []llm.Message
 	scanner := bufio.NewScanner(os.Stdin)
